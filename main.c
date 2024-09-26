@@ -12,6 +12,10 @@ void setClks();
 void LPUART1init(void);
 void LPUART1write(int c);
 int  LPUART1read(void);
+void delayMs(int n);
+
+void initOutputPins();
+void initInputPins();
 
 /*
  * Design Pinout
@@ -41,7 +45,7 @@ int  LPUART1read(void);
  *
  * LPUART1 for UART (hopefully connects to STLINK RxTx, can configure for other pins though)
  *
- * TIM4 probably for PWM
+ * TIM2 CH2 probably for PWM PB11
  *
  *
  *
@@ -55,6 +59,77 @@ int main (void) {
 	LPUART1init();
 
 
+	/*************
+	 * TEST CODE *
+	 *************/
+
+	// GPIOE clks
+	RCC->AHB2ENR |= 1<<4;
+
+	// PE 15, 14, 12, 10 as output
+	GPIOE->MODER &= ~(0b111100110011 << 20);
+	GPIOE->MODER |=  (0b010100010001 << 20);
+	// turn all off
+	GPIOE->ODR &=   ~(0b000000 << 10);
+
+
+	// setup PWM
+	// GPIOB clk
+	RCC->AHB2ENR |= 1 << 1;
+
+	// set PB11 as TIM2 CH2 af mode
+	GPIOB->MODER &= ~(0b11 << 22);
+	GPIOB->MODER |=  (0b10 << 22);
+	GPIOB->AFR[1] &= ~(0b1111 << 12);
+	GPIOB->AFR[1] |=  (0b0001 << 12);
+
+	// setup TIM2 CH4 for us pwm
+	RCC->APB1ENR1 |= (1 << 0); 		// clk
+
+	// cycle 	20ms 	(20000us)
+	// 0deg		.5ms	(500us)
+	// 90deg	1.5ms	(1500us)
+	// 180deg	2.5ms	(2500us)
+	// range	2ms		(2000us)
+
+	TIM2->PSC = 16000 - 1;		// prescale for 1 cycle = 1ms
+	TIM2->ARR = 1000 - 1;		// reset every 1000ms
+	TIM2->CCMR2 = 0x6000;		// set switch on matched value
+	TIM2->CCR4 = 500 - 1 ;		// switch on half for now
+	TIM2->CCER |= (0b1 << 12);	// enable CH4 Compare Mode
+	TIM2->CNT = 0;
+	TIM2->CR1 = 1;
+
+
+
+	while(1) {
+
+		GPIOE->ODR |= (1 << 10);
+		delayMs(500);
+
+		GPIOE->ODR &= ~(1 << 10);
+		GPIOE->ODR |=  (1 << 12);
+		delayMs(500);
+
+		GPIOE->ODR &= ~(1 << 12);
+		GPIOE->ODR |=  (1 << 14);
+		delayMs(500);
+
+		GPIOE->ODR &= ~(1 << 14);
+		GPIOE->ODR |=  (1 << 15);
+		delayMs(500);
+
+		GPIOE->ODR &= ~(1 << 15);
+		delayMs(500);
+
+
+
+
+
+
+
+
+	}
 
 
 
@@ -65,6 +140,16 @@ int main (void) {
 
 }
 
+void initOutputPins(){
+
+	// enable GPIOE clks
+
+}
+
+void initInputPins(){
+
+
+}
 
 
 
@@ -131,4 +216,18 @@ int LPUART1read(void) {
     return LPUART1->RDR;
 }
 
+void delayMs(int n) {
+    int i;
+
+    /* Configure SysTick */
+    SysTick->LOAD = 16000;  /* reload with number of clocks per millisecond */
+    SysTick->VAL = 0;       /* clear current value register */
+    SysTick->CTRL = 0x5;    /* Enable the timer */
+
+    for(i = 0; i < n; i++) {
+        while((SysTick->CTRL & 0x10000) == 0) /* wait until the COUNTFLAG is set */
+            { }
+    }
+    SysTick->CTRL = 0;      /* Stop the timer (Enable = 0) */
+}
 
