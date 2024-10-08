@@ -7,6 +7,17 @@
 #define bitflip(word,  idx)  ((word) ^=  (1<<(idx))) //Flips the bit number <idx> -- All other bits are not affected.
 #define bitcheck(word, idx)  ((word>>idx) & 1      ) //Checks the bit number <idx> -- 0 means clear; !0 means set.
 
+//
+void setClks()
+{
+    RCC->APB1ENR1 |=1<<28;   // Enable the power interface clock by setting the PWREN bits
+	RCC->APB1ENR2 |=0x1;     // Enable LPUART1EN clock
+	RCC->CCIPR1   |=0x800;   // 01 for HSI16 to be used for LPUART1
+	RCC->CCIPR1   &= ~(0x400);
+	RCC->CFGR     |=0x1;     // Use HSI16 as SYSCLK
+	RCC->CR       |=0x161;   // MSI clock enable; MSI=4 MHz; HSI16 clock enable
+}
+
 // Function prototypes for delay and states
 void delay_ms(uint32_t ms);
 void state_idle();
@@ -37,6 +48,9 @@ bool detect_error() {
 }
 
 int main() {
+
+    setClks();
+    
     // Enable clock for GPIOC (PC13 for the button) and GPIOB (PB7 for the LED)
     RCC->AHB2ENR |= (1 << 2);  // Enable clock for GPIOC (bit 2 for PC13)
     RCC->AHB2ENR |= (1 << 1);  // Enable clock for GPIOB (bit 1 for PB7)
