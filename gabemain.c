@@ -15,7 +15,11 @@ int  LPUART1read(void);
 void delayMs(int n);
 void delay_us(uint32_t val);
 
+void enableServo();
+void disableServo();
 void setServoDeg(int degrees);
+
+void initServoTIM();
 void initOutputPins();
 void initInputPins();
 
@@ -44,7 +48,7 @@ void linearDis();
  *  StepDir		XX		PE14
  *  StepEn		XX		PE15
  *				NC		PB10
- *  ScrapePWM			PB11
+ *  ScrapePWM	XX		PB11
  *
  * INPUTS:
  *
@@ -78,80 +82,52 @@ int main (void) {
 	 * TEST CODE *
 	 *************/
 
-	// GPIOE clks
-	RCC->AHB2ENR |= 1<<4;
+	initOutputPins();
 
-	// PE 15, 14, 12, 10 as output
-	GPIOE->MODER &= ~(0b111100110011 << 20);
-	GPIOE->MODER |=  (0b010100010001 << 20);
-	// turn all off
-	GPIOE->ODR &=   ~(0b000000 << 10);
+	initServoTIM();
 
-	// PE 08, 07 output
-	GPIOE->MODER &= ~(0b1111 << 14);
-	GPIOE->MODER |=  (0b0101 << 14);
-	GPIOE->ODR &= ~(0b00 << 7);
-
-
-	// setup PWM
-	// GPIOB clk
-	RCC->AHB2ENR |= 1 << 1;
-
-	// set PB11 as TIM2 CH2 af mode
-	GPIOB->MODER &= ~(0b11 << 22);
-	GPIOB->MODER |=  (0b10 << 22);
-	GPIOB->AFR[1] &= ~(0b1111 << 12);
-	GPIOB->AFR[1] |=  (0b0001 << 12);
-
-	// setup TIM2 CH4 for us pwm
-	RCC->APB1ENR1 |= (1 << 0); 		// clk
-
-	// cycle 	20ms 	(20000us)
-	// 0deg		.5ms	(500us)
-	// 90deg	1.5ms	(1500us)
-	// 180deg	2.5ms	(2500us)
-	// range	2ms		(2000us)
-
-	TIM2->PSC = 16 - 1;			// prescale for 1 cycle = 1us
-	TIM2->ARR = 20000 - 1;		// reset every 20ms
-	TIM2->CCMR2 = 0x6000;		// set switch on matched value
-	TIM2->CCR4 = 500 - 1 ;		// set degrees 500-2500
-	TIM2->CCER |= (0b1 << 12);	// enable CH4 Compare Mode
-	TIM2->CNT = 0;
-//	TIM2->CR1 = 1;				// start timer
-
-
-
-
-
-
-
-	/* with pwm connectd to stepper
-	GPIOE->ODR &= ~(1 << 12);	// EN
-	delayMs(1000);
-	GPIOE->ODR |= (1 << 10);	// DIR
+	/*
+	// linear actuator
+	linearUp();
+	delayMs(100);
+	linearEn();
+	delayMs(5000);
+	linearDis();
 	delayMs(1000);
 
-	TIM2->CR1 = 1;				// start timer
-
+	linearDown();
+	delayMs(100);
+	linearEn();
+	delayMs(5000);
+	linearDis();
 	delayMs(1000);
-	TIM2->CR1 = 0;
-
-	GPIOE->ODR &= ~(1 << 10);	// switch DIR
-	delayMs(1000);
-
-	TIM2->CR1 = 1;
-	delayMs(1000);
-
-	TIM2->CR1 = 0;
-
-	delayMs(200);
-	GPIOE->ODR |= (1 << 12);
 	*/
 
-
+	// theoretically 75 turns from front to back
+	// tested 77 turns
+	// one turn = 200 pulses
+	// 75 turns = 15,000 pulses
+	// 70 turns = 14,000 pulses
 
 	delayMs(2000);
+
+	stepEn();
+	stepDirF();
+	// step forward front to back
+	for (int i = 0; i < 15400; i++) {
+		stepPulse(600);
+	}
+
+	delayMs(1000);
+
+	stepDirB();
+	for (int i = 0; i < 15400; i++) {
+		stepPulse(600);
+	}
+
+
+	/*
+	delayMs(5000);
 
 
 	// linear actuator
@@ -194,7 +170,7 @@ int main (void) {
 		setServoDeg(i);
 		delayMs(20);
 	}
-
+	*/
 
 
 	while(1) {
@@ -216,6 +192,44 @@ void setServoDeg(int degrees) {
 	TIM2->CCR4 = usPulse - 1;
 	// turn on timer
 	TIM2->CR1 = 1;
+
+}
+
+void enableServo() {
+	TIM2->CR1 = 1;
+}
+
+void disableServo() {
+	TIM2->CR1 = 0;
+}
+
+void initServoTIM() {
+	// setup PWM
+	// GPIOB clk
+	RCC->AHB2ENR |= 1 << 1;
+
+	// set PB11 as TIM2 CH2 af mode
+	GPIOB->MODER &= ~(0b11 << 22);
+	GPIOB->MODER |=  (0b10 << 22);
+	GPIOB->AFR[1] &= ~(0b1111 << 12);
+	GPIOB->AFR[1] |=  (0b0001 << 12);
+
+	// setup TIM2 CH4 for us pwm
+	RCC->APB1ENR1 |= (1 << 0); 		// clk
+
+	// cycle 	20ms 	(20000us)
+	// 0deg		.5ms	(500us)
+	// 90deg	1.5ms	(1500us)
+	// 180deg	2.5ms	(2500us)
+	// range	2ms		(2000us)
+
+	TIM2->PSC = 16 - 1;			// prescale for 1 cycle = 1us
+	TIM2->ARR = 20000 - 1;		// reset every 20ms
+	TIM2->CCMR2 = 0x6000;		// set switch on matched value
+	TIM2->CCR4 = 500 - 1 ;		// set degrees 500-2500
+	TIM2->CCER |= (0b1 << 12);	// enable CH4 Compare Mode
+	TIM2->CNT = 0;
+//	TIM2->CR1 = 1;				// start timer
 
 }
 
@@ -263,7 +277,19 @@ void linearDis() {
 }
 
 void initOutputPins(){
-	// enable GPIOE clks
+	// GPIOE clks
+	RCC->AHB2ENR |= 1<<4;
+
+	// PE 15, 14, 12, 10 as output
+	GPIOE->MODER &= ~(0b111100110011 << 20);
+	GPIOE->MODER |=  (0b010100010001 << 20);
+	// turn all off
+	GPIOE->ODR &=   ~(0b000000 << 10);
+
+	// PE 08, 07 output
+	GPIOE->MODER &= ~(0b1111 << 14);
+	GPIOE->MODER |=  (0b0101 << 14);
+	GPIOE->ODR &= ~(0b00 << 7);
 
 }
 
