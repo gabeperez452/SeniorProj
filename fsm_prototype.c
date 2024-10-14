@@ -388,14 +388,14 @@ void state_scraperArmGoSwoosh() {
     stepEn();
     stepDirF();
     // step forward front to back
-    for (int i = 0; i < 15400; i++) {
+    for (int i = 0; i < 15000; i++) {
     	stepPulse(600);
     }
 
     delayMs(1000);
 
     stepDirB();
-    for (int i = 0; i < 15400; i++) {
+    for (int i = 0; i < 15000; i++) {
     	stepPulse(600);
     }
 
