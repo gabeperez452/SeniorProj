@@ -52,13 +52,13 @@ void linearDis();
  *
  * INPUTS:
  *
- *  ScrpUp		XX
- *  ScrpDwn		XX
+ *  ScrpUp		XX		F13
+ *  ScrpDwn		XX		E9
  *
- *  SledBL		XX
- *  SledBR		XX
- *  SledFL		XX
- *  SledFR		XX
+ *  SledBL		XX		E11
+ *  SledBR		XX		F14
+ *  SledFL		XX		E13
+ *  SledFR		XX		F15
  *
  *
  *
@@ -86,8 +86,11 @@ int main (void) {
 
 	initServoTIM();
 
-	/*
-	// linear actuator
+	// send servo to up pos
+	setServoDeg(0);
+
+
+	// linear actuator up
 	linearUp();
 	delayMs(100);
 	linearEn();
@@ -95,13 +98,14 @@ int main (void) {
 	linearDis();
 	delayMs(1000);
 
+	// linear actuator down
 	linearDown();
 	delayMs(100);
 	linearEn();
 	delayMs(5000);
 	linearDis();
 	delayMs(1000);
-	*/
+
 
 	// theoretically 75 turns from front to back
 	// tested 77 turns
@@ -118,11 +122,28 @@ int main (void) {
 		stepPulse(600);
 	}
 
-	delayMs(1000);
+	delayMs(2000);
 
+	// drop servo motor
+	for (int i = 0; i < 90; i++) {
+		setServoDeg(i);
+		delayMs(20);
+	}
+
+	delayMs(2000);
+
+	// step back to front
 	stepDirB();
 	for (int i = 0; i < 15400; i++) {
 		stepPulse(600);
+	}
+
+	delayMs(2000);
+
+	// raise scraper arm
+	for (int i = 90; i > 0; i--) {
+		setServoDeg(i);
+		delayMs(20);
 	}
 
 
