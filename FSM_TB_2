@@ -162,6 +162,8 @@ void setClks()
 	RCC->CCIPR1   &= ~(0x400);
 	RCC->CFGR     |=0x1;     // Use HSI16 as SYSCLK
 	RCC->CR       |=0x161;   // MSI clock enable; MSI=4 MHz; HSI16 clock enable
+	// Enable USART2 clock (USART2 is on APB1)
+    	RCC->APB1ENR1 |= RCC_APB1ENR1_USART2EN;
 }
 //
 
@@ -460,4 +462,15 @@ int checkSwitchesHeld(int holdTime)
 
 	    // If we reach here, both switches were held continuously for the hold time
 	    return 1;
+}
+
+void initUARTPins()
+{
+	// PA2 = USART2_TX, PA3 = USART2_RX
+    GPIOA->MODER &= ~(GPIO_MODER_MODE2 | GPIO_MODER_MODE3);  // Clear MODER bits for PA2 and PA3
+    GPIOA->MODER |= (0b10 << GPIO_MODER_MODE2_Pos) | (0b10 << GPIO_MODER_MODE3_Pos);  // Set to alternate function
+
+    // Select AF7 (USART2) for PA2 and PA3
+    GPIOA->AFR[0] &= ~((0b1111 << GPIO_AFRL_AFSEL2_Pos) | (0b1111 << GPIO_AFRL_AFSEL3_Pos));  // Clear AFR bits
+    GPIOA->AFR[0] |= (0b0111 << GPIO_AFRL_AFSEL2_Pos) | (0b0111 << GPIO_AFRL_AFSEL3_Pos);     // Set AF7 for USART2
 }
