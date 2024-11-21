@@ -24,8 +24,10 @@ void initOutputPins();
 void initInputPins();
 
 void stepPulse(int delay);
-void stepEn();
-void stepDis();
+void stepEnL();
+void stepEnR();
+void stepDisL();
+void stepDisR();
 void stepDirF();
 void stepDirB();
 
@@ -34,6 +36,14 @@ void linearDown();
 void linearEn();
 void linearDis();
 
+void initInputPins();
+
+uint8_t checkScrapeUp();
+uint8_t checkScrapeDown();
+uint8_t checkSledBL();
+uint8_t checkSledBR();
+uint8_t checkSledFL();
+uint8_t checkSledFR();
 
 /*
  * Design Pinout
@@ -43,10 +53,10 @@ void linearDis();
  *  BendDir		XX		PE8
  *  BendEn		XX		PE7
  *				NC		GND
- *				NC		PE10
+ *	StepEnR		XX		PE10
  *	StepPulse	XX		PE12
  *  StepDir		XX		PE14
- *  StepEn		XX		PE15
+ *  StepEnL		XX		PE15
  *				NC		PB10
  *  ScrapePWM	XX		PB11
  *
@@ -60,144 +70,286 @@ void linearDis();
  *  SledFL		XX		E13
  *  SledFR		XX		F15
  *
- *
- *
  * LPUART1 for UART (hopefully connects to STLINK RxTx, can configure for other pins though)
  *
  * TIM2 CH4 probably for PWM PB11
- *
- *
- *
  */
 
+/* ORDER
+ *
+ * Wait for button input
+ * Auto sets servo to very top
+ *
+ * Wait for button input
+ * check servo pos and set upwards
+ * wait for button input
+ * pull both sleds forwards
+ *
+ * wait for button
+ * linear up, linear down
+ * wait for button
+ * sleds back
+ * wait for button
+ * arm down
+ * wait for button
+ * sleds forward
+ * wait for button
+ * arm up
+ */
 
 int main (void) {
-
-	// init basics
 	setClks();
-	LPUART1init();
 
-
-	/*************
-	 * TEST CODE *
-	 *************/
-
+	initInputPins();
 	initOutputPins();
-
 	initServoTIM();
 
-	// send servo to up pos
+	// en PC13 input
+	RCC->AHB2ENR |= (1<<2);
+	GPIOC->MODER &= ~(0b11 << (13*2));
+	// PUPD ??????? seems to work w/o
+
+	// wait for button input (PC13)
+	while(((GPIOC->IDR & (1<<13)) >> 13) == 0);
+	delayMs(100);
+	while((GPIOC->IDR & (1<<13)) >> 13);
+
 	setServoDeg(0);
 
+	while (1) {
 
-	// linear actuator up
-	linearUp();
-	delayMs(100);
-	linearEn();
-	delayMs(5000);
-	linearDis();
-	delayMs(1000);
-
-	// linear actuator down
-	linearDown();
-	delayMs(100);
-	linearEn();
-	delayMs(5000);
-	linearDis();
-	delayMs(1000);
+		// wait for button input (PC13)
+		while(((GPIOC->IDR & (1<<13)) >> 13) == 0);
+		delayMs(100);
+		while((GPIOC->IDR & (1<<13)) >> 13);
 
 
-	// theoretically 75 turns from front to back
-	// tested 77 turns
-	// one turn = 200 pulses
-	// 75 turns = 15,000 pulses
-	// 70 turns = 14,000 pulses
+		// check scraper arm pos, set scrape arm up.
+		if (checkScrapeUp()) {
+			// if arm is up, start servo at 0
+			setServoDeg(0);
+		} else if (checkScrapeDown()) {
+			// if arm is down, start servo at 90
+			setServoDeg(90);
+		} else {
+			// if arm isn't up or down, start servo at 45 and move up until scrape up is reached
+			// if scrape up isn't reached, something is very wrong
+			int i = 45;
+			setServoDeg(i);
+			while ((checkScrapeUp() == 0) & (i > 0) ) {
+				setServoDeg(i);
+				i--;
+				delayMs(100);
+			}
+			if (i >= 180) {
+				// very very bad stop
+			}
+		}
 
-	delayMs(2000);
+		// wait for button input (PC13)
+		while(((GPIOC->IDR & (1<<13)) >> 13) == 0);
+		delayMs(100);
+		while((GPIOC->IDR & (1<<13)) >> 13);
 
-	stepEn();
-	stepDirF();
-	// step forward front to back
-	for (int i = 0; i < 15400; i++) {
-		stepPulse(600);
+
+		// check sled positions, pull both sleds forwards
+		stepDirF();
+		stepEnL();
+		stepEnR();
+		delayMs(200);
+		int forwardSteps = 0;
+		while (!((checkSledFL()) && (checkSledFR())) && (forwardSteps < 15000) ) {
+			// if left sled is front,
+			if (checkSledFL()) {
+				stepDisL();
+			} else {
+				stepEnL();
+			}
+
+			// if right sled is front
+			if (checkSledFR()) {
+				stepDisR();
+			} else {
+				stepEnR();
+			}
+
+			// pulse enabled sides
+			stepPulse(1000);
+
+		}
+
+		// if steps is over 15000, error
+		if (forwardSteps >= 15000) {
+			// error
+		}
+
+
+
+
+		/* LOOP */
+
+		// wait for start input (button input again)
+		// wait for button input (PC13)
+		while(((GPIOC->IDR & (1<<13)) >> 13) == 0);
+		delayMs(100);
+		while((GPIOC->IDR & (1<<13)) >> 13);
+
+
+		// linear up
+		linearUp();
+		delayMs(100);
+		linearEn();
+		delayMs(6000);
+		linearDis();
+		delayMs(1000);
+
+		// linear down
+		linearDown();
+		delayMs(100);
+		linearEn();
+		delayMs(6000);
+		linearDis();
+		delayMs(1000);
+
+		// wait for button input (PC13)
+		while(((GPIOC->IDR & (1<<13)) >> 13) == 0);
+		delayMs(100);
+		while((GPIOC->IDR & (1<<13)) >> 13);
+
+		// sled completely back, check both sides
+		stepDirB();
+		stepEnL();
+		stepEnR();
+		delayMs(200);
+		int backwardSteps = 0;
+		while (!((checkSledBL()) && (checkSledBR())) && (backwardSteps < 15000) ) {
+			// if left sled is back,
+			if (checkSledBL()) {
+				stepDisL();
+			} else {
+				stepEnL();
+			}
+
+			// if right sled is back
+			if (checkSledBR()) {
+				stepDisR();
+			} else {
+				stepEnR();
+			}
+
+			// pulse enabled sides
+			stepPulse(1000);
+
+		}
+
+		// wait for button input (PC13)
+		while(((GPIOC->IDR & (1<<13)) >> 13) == 0);
+		delayMs(100);
+		while((GPIOC->IDR & (1<<13)) >> 13);
+
+
+		// drop arm, check down
+		// arm is up at 0, down at 90
+		int armAngle = 0;
+		while ((checkScrapeDown() == 0) && (armAngle < 90)) {
+			setServoDeg(armAngle);
+			armAngle++;
+			delayMs(100);
+		}
+
+		// wait for button input (PC13)
+		while(((GPIOC->IDR & (1<<13)) >> 13) == 0);
+		delayMs(100);
+		while((GPIOC->IDR & (1<<13)) >> 13);
+
+
+		// pull sled forward, check both sides
+		stepDirF();
+		stepEnL();
+		stepEnR();
+		delayMs(200);
+		forwardSteps = 0;
+		while (!((checkSledFL()) && (checkSledFR())) && (forwardSteps < 15000) ) {
+			// if left sled is front,
+			if (checkSledFL()) {
+				stepDisL();
+			} else {
+				stepEnL();
+			}
+
+			// if right sled is front
+			if (checkSledFR()) {
+				stepDisR();
+			} else {
+				stepEnR();
+			}
+
+			// pulse enabled sides
+			stepPulse(600);
+
+		}
+
+		// wait for button input (PC13)
+		while(((GPIOC->IDR & (1<<13)) >> 13) == 0);
+		delayMs(100);
+		while((GPIOC->IDR & (1<<13)) >> 13);
+
+
+		// arm up, check up
+		// arm is up at 0, down at 90
+		armAngle = 90;
+		while ((checkScrapeUp() == 0) && (armAngle > 0)) {
+			setServoDeg(armAngle);
+			armAngle--;
+			delayMs(100);
+		}
+
+
+		/* END LOOP */
+
+		while (1);
+
+
+
+
+		/*
+		if (checkSledFR()) {
+			GPIOE->ODR |= (0b1 << 15);
+		} else {
+			GPIOE->ODR &= ~(0b1 << 15);
+		}
+		*/
+
 	}
 
-	delayMs(2000);
+	while(1);
 
-	// drop servo motor
-	for (int i = 0; i < 90; i++) {
-		setServoDeg(i);
-		delayMs(20);
-	}
-
-	delayMs(2000);
-
-	// step back to front
-	stepDirB();
-	for (int i = 0; i < 15400; i++) {
-		stepPulse(600);
-	}
-
-	delayMs(2000);
-
-	// raise scraper arm
-	for (int i = 90; i > 0; i--) {
-		setServoDeg(i);
-		delayMs(20);
-	}
-
-
-	/*
-	delayMs(5000);
-
-
-	// linear actuator
-	linearUp();
-	delayMs(100);
-	linearEn();
-	delayMs(5000);
-	linearDis();
-	delayMs(1000);
-
-	linearDown();
-	delayMs(100);
-	linearEn();
-	delayMs(5000);
-	linearDis();
-	delayMs(1000);
+}
 
 
 
-	// steppers
-	stepEn();
-	stepDirF();
+uint8_t checkScrapeUp () {
+	return ((GPIOF->IDR & (1<<13)) >> 13);
+}
 
-	for (int i = 0; i < 1200; i++) {
-		stepPulse(600);
-	}
-	delayMs(100);
-	stepDirB();
-	for (int i = 0; i < 1200; i++) {
-		stepPulse(600);
-	}
+uint8_t checkScrapeDown () {
+	return ((GPIOE->IDR & (1<<9)) >> 9);
+}
 
+uint8_t checkSledBL () {
+	return ((GPIOE->IDR & (1<<11)) >> 11);
+}
 
-	// servo
-	for (int i = 0; i < 90; i++) {
-		setServoDeg(i);
-		delayMs(20);
-	}
-	for (int i = 90; i > 0; i--) {
-		setServoDeg(i);
-		delayMs(20);
-	}
-	*/
+uint8_t checkSledBR () {
+	return ((GPIOF->IDR & (1<<14)) >> 14);
+}
 
+uint8_t checkSledFL () {
+	return ((GPIOE->IDR & (1<<13)) >> 13);
+}
 
-	while(1) {
-
-	}
-
+uint8_t checkSledFR () {
+	return ((GPIOF->IDR & (1<<15)) >> 15);
 }
 
 void setServoDeg(int degrees) {
@@ -261,23 +413,32 @@ void stepPulse(int delay) {
 	delay_us(delay);
 }
 
-void stepEn() {
-	GPIOE->ODR &= ~(1 << 15);	// EN
-	delayMs(200);
+void stepEnL() {
+	GPIOE->ODR &= ~(1 << 15);	// EN L
+//	delayMs(200);
 }
 
-void stepDis() {
+void stepEnR() {
+	GPIOE->ODR &= ~(0b1 << 10); // EN R
+//	delayMs(200);
+}
+
+void stepDisL() {
 	GPIOE->ODR |= (1 << 15);	// DISABLE
-	delayMs(200);
+//	delayMs(200);
 }
 
-void stepDirF() {
-	GPIOE->ODR |= (1 << 14);	// DIR forward
-	delayMs(1);
+void stepDisR() {
+	GPIOE->ODR |= (1 << 10);	// DISABLE R
 }
 
 void stepDirB() {
-	GPIOE->ODR &= ~(1 << 14);	// DIR backward
+	GPIOE->ODR |= (1 << 14);	// DIR BACKWARD
+	delayMs(1);
+}
+
+void stepDirF() {
+	GPIOE->ODR &= ~(1 << 14);	// DIR FORWARD
 	delayMs(1);
 }
 
@@ -314,9 +475,41 @@ void initOutputPins(){
 
 }
 
-void initInputPins(){
+void initInputPins() {
+/*  ScrpUp		XX		F13
+ *  ScrpDwn		XX		E9
+ *
+ *  SledBL		XX		E11
+ *  SledBR		XX		F14
+ *  SledFL		XX		E13
+ *  SledFR		XX		F15
+ */
+	// GPIO F 13, 14, 15
+	// GPIO E 09, 11
+	RCC->AHB2ENR |=  (0b1 << 4);	// GPIOE clk
+	RCC->AHB2ENR |=  (0b1 << 5);	// GPIOF clk
 
+	// set input
+	GPIOF->MODER &= ~(0b11 << (13*2));
+	GPIOF->MODER &= ~(0b11 << (14*2));
+	GPIOF->MODER &= ~(0b11 << (15*2));
 
+	GPIOE->MODER &= ~(0b11 << (9*2));
+	GPIOE->MODER &= ~(0b11 << (11*2));
+	GPIOE->MODER &= ~(0b11 << (13*2));
+
+	// set pull down resistor
+	GPIOF->PUPDR &= ~(0b111111 << (13*2));
+	GPIOF->PUPDR |=  (0b10 << (13*2));		// F13 pull down
+	GPIOF->PUPDR |=  (0b10 << (14*2));		// F14 pull down
+	GPIOF->PUPDR |=  (0b10 << (15*2));		// F15 pull down
+
+	GPIOE->PUPDR &= ~(0b11 << (9*2));
+	GPIOE->PUPDR |=  (0b10 << (9*2));		// E9 pull down
+	GPIOE->PUPDR &= ~(0b11 << (11*2));
+	GPIOE->PUPDR |=  (0b10 << (11*2));		// E11 pull down
+	GPIOE->PUPDR &= ~(0b11 << (13*2));
+	GPIOE->PUPDR |=  (0b10 << (13*2));		// E13 pull down
 }
 
 void delay_us(uint32_t val){
