@@ -69,19 +69,19 @@ void linearDis();
 void state_idle();
 void state_checkHeadPosition();
 void state_checkBedPosition();
-void state_linearActuatorGoUp();
-void state_linearActuatorGoDown();
+void state_linearActuatorUp();
+void state_linearActuatorDown();
 void state_checkVertScraperLimSwitch();
-void state_scraperArmGoDown();
+void state_scraperArmDown();
 void state_checkHorizScraperArmLimSwitch();
 void state_scraperArmForward();
 void state_scraperArmBackward();
-void state_scraperArmGoUp();
+void state_scraperArmUp();
 void state_error();
 
 // Global variables
 typedef void (*StateFunction)();
-StateFunction current_state = state_idle;  // Initial state
+StateFunction current_state = state_linearActuatorUp;  // Initial state
 
 typedef enum {
     NO_ERROR,
@@ -106,7 +106,7 @@ int main() {
 
     // Run FSM continuously
     while (1) {
-        if (detect_error()) {
+        if (detect_error() == true) {
             current_state = state_error;  // Go to error state if error is detected
         }
 
@@ -162,8 +162,6 @@ void setClks()
 	RCC->CCIPR1   &= ~(0x400);
 	RCC->CFGR     |=0x1;     // Use HSI16 as SYSCLK
 	RCC->CR       |=0x161;   // MSI clock enable; MSI=4 MHz; HSI16 clock enable
-	// Enable USART2 clock (USART2 is on APB1)
-    	RCC->APB1ENR1 |= RCC_APB1ENR1_USART2EN;
 }
 //
 
@@ -315,13 +313,13 @@ void state_idle()
 	} else {
 	    // 6. Set PA9 to high (set)
 	    GPIOA->BSRR = GPIO_BSRR_BS9;          // Set PA9 (BS9 in BSRR register)
-		current_state = state_linearActuatorGoUp;
+		current_state = state_linearActuatorUp;
 	}
 }
 
-void state_linearActuatorGoUp()
+void state_linearActuatorUp()
 {
-    printf("State: Linear Actuator Go Up\n");
+    //printf("State: Linear Actuator Go Up\n");
     // Simulate actuator movement (placeholder code)
     linearUp();
     delayMs(100);
@@ -330,10 +328,10 @@ void state_linearActuatorGoUp()
     linearDis();
     delayMs(1000);
 
-    current_state = state_linearActuatorGoDown;
+    current_state = state_linearActuatorDown;
 }
 
-void state_linearActuatorGoDown()
+void state_linearActuatorDown()
 {
 	printf("State: Linear Actuator Go Up\n");
 	// Simulate actuator movement (placeholder code)
@@ -344,7 +342,7 @@ void state_linearActuatorGoDown()
 	linearDis();
 	delayMs(1000);
 
-	current_state = state_scraperArmGoForward;
+	current_state = state_scraperArmForward;
 }
 
 //void state_checkHeadPosition() {
@@ -369,7 +367,7 @@ void state_linearActuatorGoDown()
 //    current_state = state_scraperArmGoDown;
 //}
 
-void state_scraperArmGoDown() {
+void state_scraperArmDown() {
     printf("State: Scraper Arm Go Down\n");
     for (int i = 0; i < 90; i++) {
     		setServoDeg(i);
@@ -385,7 +383,7 @@ void state_checkHorizScraperArmLimSwitchs()
 
     // Check if both switches are held in the pressed position for HOLD_TIME_MS
        if (checkSwitchesHeld(HOLD_TIME_MS)) {
-           current_state = state_scraperArmGoDown;  // Move to the next state
+           current_state = state_scraperArmDown;  // Move to the next state
        } else {
            state_error();  // Throw an error if both switches are not held in the pressed position
        }
@@ -400,7 +398,7 @@ void state_scraperArmForward() {
     	stepPulse(600);
     }
 
-    current_state = state_scraperArmGoDown;
+    current_state = state_scraperArmDown;
 }
 
 void state_scraperArmBackward() {
@@ -412,7 +410,7 @@ void state_scraperArmBackward() {
     	stepPulse(600);
     }
 
-    current_state = state_scraperArmGoUp;
+    current_state = state_scraperArmUp;
 }
 
 void state_scraperArmUp() {
@@ -462,15 +460,4 @@ int checkSwitchesHeld(int holdTime)
 
 	    // If we reach here, both switches were held continuously for the hold time
 	    return 1;
-}
-
-void initUARTPins()
-{
-	// PA2 = USART2_TX, PA3 = USART2_RX
-    GPIOA->MODER &= ~(GPIO_MODER_MODE2 | GPIO_MODER_MODE3);  // Clear MODER bits for PA2 and PA3
-    GPIOA->MODER |= (0b10 << GPIO_MODER_MODE2_Pos) | (0b10 << GPIO_MODER_MODE3_Pos);  // Set to alternate function
-
-    // Select AF7 (USART2) for PA2 and PA3
-    GPIOA->AFR[0] &= ~((0b1111 << GPIO_AFRL_AFSEL2_Pos) | (0b1111 << GPIO_AFRL_AFSEL3_Pos));  // Clear AFR bits
-    GPIOA->AFR[0] |= (0b0111 << GPIO_AFRL_AFSEL2_Pos) | (0b0111 << GPIO_AFRL_AFSEL3_Pos);     // Set AF7 for USART2
 }
