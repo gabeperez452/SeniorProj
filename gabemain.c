@@ -75,7 +75,7 @@ uint8_t checkSledFR();
  * TIM2 CH4 probably for PWM PB11
  */
 
-/* ORDER
+/* OLD ORDER
  *
  * Wait for button input
  * Auto sets servo to very top
@@ -114,7 +114,7 @@ int main (void) {
 	delayMs(100);
 	while((GPIOC->IDR & (1<<13)) >> 13);
 
-	setServoDeg(0);
+//	setServoDeg(0);		was used to install scraper arm
 
 	while (1) {
 
@@ -146,17 +146,18 @@ int main (void) {
 			}
 		}
 
-		// wait for button input (PC13)
-		while(((GPIOC->IDR & (1<<13)) >> 13) == 0);
-		delayMs(100);
-		while((GPIOC->IDR & (1<<13)) >> 13);
+//		// wait for button input (PC13)
+//		while(((GPIOC->IDR & (1<<13)) >> 13) == 0);
+//		delayMs(100);
+//		while((GPIOC->IDR & (1<<13)) >> 13);
 
+		delayMs(1000);
 
 		// check sled positions, pull both sleds forwards
 		stepDirF();
 		stepEnL();
 		stepEnR();
-		delayMs(200);
+		delayMs(500);
 		int forwardSteps = 0;
 		while (!((checkSledFL()) && (checkSledFR())) && (forwardSteps < 15000) ) {
 			// if left sled is front,
@@ -189,11 +190,12 @@ int main (void) {
 		/* LOOP */
 
 		// wait for start input (button input again)
-		// wait for button input (PC13)
-		while(((GPIOC->IDR & (1<<13)) >> 13) == 0);
-		delayMs(100);
-		while((GPIOC->IDR & (1<<13)) >> 13);
+//		// wait for button input (PC13)
+//		while(((GPIOC->IDR & (1<<13)) >> 13) == 0);
+//		delayMs(100);
+//		while((GPIOC->IDR & (1<<13)) >> 13);
 
+		delayMs(1000);
 
 		// linear up
 		linearUp();
@@ -211,10 +213,12 @@ int main (void) {
 		linearDis();
 		delayMs(1000);
 
-		// wait for button input (PC13)
-		while(((GPIOC->IDR & (1<<13)) >> 13) == 0);
-		delayMs(100);
-		while((GPIOC->IDR & (1<<13)) >> 13);
+//		// wait for button input (PC13)
+//		while(((GPIOC->IDR & (1<<13)) >> 13) == 0);
+//		delayMs(100);
+//		while((GPIOC->IDR & (1<<13)) >> 13);
+
+		delayMs(1000);
 
 		// sled completely back, check both sides
 		stepDirB();
@@ -242,11 +246,12 @@ int main (void) {
 
 		}
 
-		// wait for button input (PC13)
-		while(((GPIOC->IDR & (1<<13)) >> 13) == 0);
-		delayMs(100);
-		while((GPIOC->IDR & (1<<13)) >> 13);
+//		// wait for button input (PC13)
+//		while(((GPIOC->IDR & (1<<13)) >> 13) == 0);
+//		delayMs(100);
+//		while((GPIOC->IDR & (1<<13)) >> 13);
 
+		delayMs(1000);
 
 		// drop arm, check down
 		// arm is up at 0, down at 90
@@ -257,11 +262,12 @@ int main (void) {
 			delayMs(100);
 		}
 
-		// wait for button input (PC13)
-		while(((GPIOC->IDR & (1<<13)) >> 13) == 0);
-		delayMs(100);
-		while((GPIOC->IDR & (1<<13)) >> 13);
+//		// wait for button input (PC13)
+//		while(((GPIOC->IDR & (1<<13)) >> 13) == 0);
+//		delayMs(100);
+//		while((GPIOC->IDR & (1<<13)) >> 13);
 
+		delayMs(1000);
 
 		// pull sled forward, check both sides
 		stepDirF();
@@ -289,11 +295,12 @@ int main (void) {
 
 		}
 
-		// wait for button input (PC13)
-		while(((GPIOC->IDR & (1<<13)) >> 13) == 0);
-		delayMs(100);
-		while((GPIOC->IDR & (1<<13)) >> 13);
+//		// wait for button input (PC13)
+//		while(((GPIOC->IDR & (1<<13)) >> 13) == 0);
+//		delayMs(100);
+//		while((GPIOC->IDR & (1<<13)) >> 13);
 
+		delayMs(1000);
 
 		// arm up, check up
 		// arm is up at 0, down at 90
@@ -307,18 +314,9 @@ int main (void) {
 
 		/* END LOOP */
 
-		while (1);
+//		while (1);
 
 
-
-
-		/*
-		if (checkSledFR()) {
-			GPIOE->ODR |= (0b1 << 15);
-		} else {
-			GPIOE->ODR &= ~(0b1 << 15);
-		}
-		*/
 
 	}
 
