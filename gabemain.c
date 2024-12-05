@@ -114,7 +114,7 @@ int main (void) {
 	delayMs(100);
 	while((GPIOC->IDR & (1<<13)) >> 13);
 
-//	setServoDeg(0);		was used to install scraper arm
+	setServoDeg(0);		// was used to install scraper arm
 
 	while (1) {
 
@@ -197,11 +197,13 @@ int main (void) {
 
 		delayMs(1000);
 
+		// RUN 2.5s at 10mm/s
+
 		// linear up
 		linearUp();
 		delayMs(100);
 		linearEn();
-		delayMs(6000);
+		delayMs(2500);
 		linearDis();
 		delayMs(1000);
 
@@ -209,7 +211,7 @@ int main (void) {
 		linearDown();
 		delayMs(100);
 		linearEn();
-		delayMs(6000);
+		delayMs(2600);
 		linearDis();
 		delayMs(1000);
 
