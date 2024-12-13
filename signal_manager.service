@@ -1,0 +1,15 @@
+[Unit]
+Description=signal_manager Python Script for OctoPrint and STM32 Communication
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /home/willow-1/scripts/signal_manager.py
+WorkingDirectory=/home/willow-1/scripts/signal_manager.py
+StandardOutput=journal
+StandardError=journal
+Restart=always
+User=willow-1
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
